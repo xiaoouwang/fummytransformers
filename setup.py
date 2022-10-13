@@ -8,7 +8,7 @@ with open('HISTORY.md') as history_file:
 
 setup_args = dict(
     name='fummytransformers',
-    version='0.0.14',
+    version='0.0.16',
     description='Fast and dummy way of using transformers to establish quick baselines',
     long_description_content_type="text/markdown",
     long_description=README,
