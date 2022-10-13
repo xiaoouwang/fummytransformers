@@ -1,9 +1,10 @@
 import torch
+import time
+import functools
 import pandas as pd
 from os import walk
 import numpy as np
 import json
-import pickle
 import bz2
 import _pickle as cPickle
 import importlib
@@ -19,6 +20,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import AutoTokenizer, AutoModel
+
 
 def deft_overlap_ratio(df):
     set1, set2 = set(df.EltCorrections_normalized), set(df.texteRep_normalized)
@@ -89,7 +91,7 @@ def deft_html_cleaning(text):
     return text
 
 
-def xo_merge_files(path_in, path_out, extension):
+def merge_files(path_in, path_out, extension):
     # initiate a empty string
     final_text = ""
     # get all the files with extension js, the walk function gives a tuple
@@ -105,50 +107,29 @@ def xo_merge_files(path_in, path_out, extension):
         f.write(final_text)
 
 
-def xo_import_commons():
-    import pandas as pd
-    import re
-
-
-def xo_read_file(path):
-    try:
-        with open(path, "r") as f:
-            return f.read()
-    except:
-        print("file doesn't exist")
-
-
-def xo_json2csv(input_path, output_path):
+def json2csv(input_path, output_path):
     df = pd.read_json(input_path)
     df.to_csv(output_path, index=False)
 
 
-def xo_csv2json_nonull(in_path, out_path):
+def csv2json_nonull(in_path, out_path):
     df = pd.read_csv(in_path)
-    xo_write_json_fromdf(out_path, df)
+    write_json_fromdf(out_path, df)
     text = open(out_path, "r").read()
     new_text, n = re.subn(":null,", ': "",', text)
-    xo_write_file(out_path, new_text)
+    write_file(out_path, new_text)
 
 
-def xo_read_lines(path):
-    lines = []
-    with open(path, "r", encoding="utf8") as f:
-        for line in f:
-            lines.append(line.strip())
-    return lines
-
-
-def xo_write_file(path, content):
+def write_file(path, content):
     with open(path, 'w') as f:
         f.write(content)
 
 
-def xo_write_json_fromdf(path, df):
+def write_json_fromdf(path, df):
     df.to_json(path, force_ascii=False, orient="records")
 
 
-def xo_write_json_fromlist(path, lst):
+def write_json_fromlist(path, lst):
     """write to json from a list of dicts
 
     Args:
@@ -160,11 +141,7 @@ def xo_write_json_fromlist(path, lst):
         json.dump(lst, outfile, ensure_ascii=False)
 
 
-def xo_count_words(s):
-    return len(s.split())
-
-
-def xo_replace_with_mask(sent, index, word):
+def replace_with_mask(sent, index, word):
     sent = sent.split()
     sent[index] = "<mask>"
     masked_sent = " ".join(sent).replace("' ", "'").replace(
@@ -172,7 +149,7 @@ def xo_replace_with_mask(sent, index, word):
     return masked_sent
 
 
-def xo_prob_options(obj_camembert, options):
+def prob_options(obj_camembert, options):
     # print(obj_camembert)
     answers = [(x["token_str"].strip(), x["score"])
                for x in obj_camembert if x["token_str"].strip() in options]
@@ -186,7 +163,7 @@ def xo_prob_options(obj_camembert, options):
         return (answers[0][0], answers[0][1], answers[1][0], answers[1][1])
 
 
-def xo_load_data(path, sep=";"):
+def load_data(path, sep=";"):
     # pd_good = pd.read_csv("wino_for_bert_changed.csv", sep=sep)
     pd_good = pd.read_csv(path, sep=sep)
     # pd_good = pd_good.iloc[:, 1:]
@@ -203,44 +180,44 @@ def xo_load_data(path, sep=";"):
     return pd_good
 
 
-def xo_load_cam(cam_model):
+def load_cam(cam_model):
     camembert = ppb.CamembertModel.from_pretrained(cam_model)
     return camembert
 
 
-def xo_fillin(model_str, k):
+def fillin(model_str, k):
     task = pipeline('fill-mask', model=model_str, top_k=k)
     return task
 
 
-def xo_produce_answers(pipeline, col, pd_good):
+def produce_answers(pipeline, col, pd_good):
     for i, row in pd_good.iterrows():
         masked_line = row[col]
         options = row.options.split()
         answers = pipeline(masked_line)
         # pd_good.iloc[i]["response1"], pd_good.iloc[i]["prob1"], pd_good.iloc[i][
-        # "response2"], pd_good.iloc[i]["prob2"] = xo_prob_options(answers, options)
+        # "response2"], pd_good.iloc[i]["prob2"] = prob_options(answers, options)
         pd_good.loc[i, ["response1"]], pd_good.loc[i, ["prob1"]], pd_good.loc[i, [
-            "response2"]], pd_good.loc[i, ["prob2"]] = xo_prob_options(answers, options)
+            "response2"]], pd_good.loc[i, ["prob2"]] = prob_options(answers, options)
     return pd_good
 
 
-def xo_produce_answers_js(model, pd_good):
+def produce_answers_js(model, pd_good):
     for i, row in pd_good.iterrows():
         masked_line = row.local_context
         options = [row.correct_answer_local_contexte,
                    row.wrong_answer_local_contexte]
         answers = model.fill_mask(masked_line, topk=20000)
         pd_good.loc[i, ["response1"]], pd_good.loc[i, ["prob1"]], pd_good.loc[i, ["response2"]], pd_good.loc[
-            i, ["prob2"]] = xo_prob_options(answers, options)
+            i, ["prob2"]] = prob_options(answers, options)
     return pd_good
 
 
-def xo_test_single_sent(pipeline, sent):
+def test_single_sent(pipeline, sent):
     return pipeline(sent)
 
 
-def xo_compute_score(correct_col, pd_good):
+def compute_score(correct_col, pd_good):
     counter_correct = 0
     counter_noresponse = 0
     counter_badresponse = 0
@@ -257,7 +234,7 @@ def xo_compute_score(correct_col, pd_good):
     return pd.DataFrame(data=data)
 
 
-def xo_cleanfrwac_alt(fpath):
+def cleanfrwac_alt(fpath):
     fr_pmi_ancien = pd.read_csv(fpath)
     # delete second and 3rd rows and reset index
     fr_pmi_ancien.drop([0, 1], inplace=True)
@@ -280,32 +257,7 @@ def xo_cleanfrwac_alt(fpath):
     return fr_pmi_ancien_alt
 
 
-def xo_read_json(path):
+def read_json(path):
     with open(path) as f:
         data = json.load(f)
     return data
-
-# def xo_read_pickle(path):
-
-
-def xo_decompress_pickle(file):
-    data = bz2.BZ2File(file, 'rb')
-    data = cPickle.load(data)
-    return data
-
-
-def xo_compressed_pickle(title, data):
-    with bz2.BZ2File(title + '.pbz2', 'w') as f:
-        cPickle.dump(data, f)
-
-
-def xo_reimport_all(package):
-    importlib.reload(sys.modules[package])
-
-
-def xo_reimport_module(some_module):
-    importlib.reload(some_module)
-
-
-def xo_reload_self():
-    importlib.reload(sys.modules["utils_xo"])

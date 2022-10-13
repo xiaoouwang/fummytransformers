@@ -1,5 +1,5 @@
 setup.sh
-frenchnlp.egg-info/*
+fummytansformers.egg-info/*
 dist/
 build/
 .gitignore
