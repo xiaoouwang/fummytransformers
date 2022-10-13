@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fummytransformers
-Version: 0.0.15
+Version: 0.0.16
 Summary: Fast and dummy way of using transformers to establish quick baselines
 Home-page: https://github.com/xiaoouwang/fummytransformers
 Download-URL: https://pypi.org/project/fummytransformers
